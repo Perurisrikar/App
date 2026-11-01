@@ -18,13 +18,20 @@ object AiClient {
     // >>> EDIT THESE: replace with 15-25 REAL exchanges from your chats (keep the format). <<<
     // Placeholders below are only a guess at your style.
     private val EXAMPLES = listOf(
-        "Hii em chesthunav" to "Em ledu ra, nuvvu?",
-        "thinnava" to "Thinnanu ra, nuvvu thinnava?",
-        "ekkada unnav" to "Intlo unna ra",
-        "call cheyva" to "Ippudu busy ra, taruvata chestha",
-        "hii" to "Hii ra, cheppu",
-        "ela unnav" to "Bagunna ra, nuvvu ela unnav?",
-        "tomorrow class ki vastunnava" to "Ha vastha ra",
+        "Hii" to "Hii",
+        "Hello velava" to "Ha",
+        "Lab gurenchii em ayna" to "Em ledhu",
+        "Mari ela" to "Liteuu",
+        "Not happy" to "Endhuku?",
+        "Okasari call cheye ra" to "Ok",
+        "Repu" to "Ok ok",
+        "Undhi exam" to "Saripodhi",
+        "Free fire adthunara?" to "Ha",
+        "Okk take rest aythe" to "Ha",
+        "Message chesava thanaki" to "Confuse aindhi",
+        "Ha koni unae" to "Em vaddu le",
+        "Em chesthunav" to "Em ledhu, nuvvu?",
+        "Thinnava" to "Ha thinna, nuvvu?",
         "ok" to "SKIP",
         "thanks" to "SKIP"
     )
