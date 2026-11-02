@@ -18,33 +18,40 @@ class WhatsAppListener : NotificationListenerService() {
 
     companion object {
         val WHATSAPP = setOf("com.whatsapp", "com.whatsapp.w4b")
-        val BLOCKED_SENDERS = setOf<String>("Mom", "Bank") // names exactly as shown in WhatsApp
+        val BLOCKED_SENDERS = setOf<String>() // add names exactly as shown in WhatsApp
         private val NOISE = Regex("""^\d+ new messages?$|^Checking for new messages|^WhatsApp Web""", RegexOption.IGNORE_CASE)
     }
 
     override fun onListenerConnected() {
-        scope.launch { AiClient.init(applicationContext) } // preload so the first reply is fast
+        DebugLog.add(this, "Listener connected")
+        scope.launch { AiClient.init(applicationContext) }
     }
 
     override fun onListenerDisconnected() {
-        // Ask Android to reconnect if the system dropped us
+        DebugLog.add(this, "Listener disconnected")
         requestRebind(android.content.ComponentName(this, WhatsAppListener::class.java))
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("enabled", false)) return
         if (sbn.packageName !in WHATSAPP) return
-
         val n = sbn.notification
-        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         val extras = n.extras
-        if (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)) return
+        val sender = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        DebugLog.add(this, "WA notif [${sbn.packageName.takeLast(4)}] from='$sender' text='${text?.take(30)}'")
 
-        val sender = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: return
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: return
-        if (sender in BLOCKED_SENDERS || NOISE.containsMatchIn(text) || sender == "WhatsApp") return
+        if (!getSharedPreferences("cfg", MODE_PRIVATE).getBoolean("enabled", false)) {
+            DebugLog.add(this, "-> skipped: switch is OFF"); return
+        }
+        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) { DebugLog.add(this, "-> skipped: group summary"); return }
+        if (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)) { DebugLog.add(this, "-> skipped: group chat"); return }
+        if (sender == null || text == null) { DebugLog.add(this, "-> skipped: no title/text"); return }
+        if (sender in BLOCKED_SENDERS || NOISE.containsMatchIn(text) || sender == "WhatsApp") {
+            DebugLog.add(this, "-> skipped: blocked/noise"); return
+        }
 
-        val action = n.actions?.firstOrNull { a -> a.remoteInputs?.isNotEmpty() == true } ?: return
+        val action = n.actions?.firstOrNull { a -> a.remoteInputs?.isNotEmpty() == true }
+        if (action == null) { DebugLog.add(this, "-> skipped: no Reply button on notification"); return }
 
         val key = "$sender|${n.`when`}|$text"
         synchronized(handled) {
@@ -53,8 +60,11 @@ class WhatsAppListener : NotificationListenerService() {
         }
 
         scope.launch {
-            val reply = AiClient.reply(applicationContext, sender, text) ?: return@launch
-            delay(Random.nextLong(2000, 5000)) // look less robotic
+            DebugLog.add(this@WhatsAppListener, "-> asking AI...")
+            val reply = AiClient.reply(applicationContext, sender, text)
+            if (reply == null) { DebugLog.add(this@WhatsAppListener, "-> AI gave no reply"); return@launch }
+            DebugLog.add(this@WhatsAppListener, "-> AI: '$reply'")
+            delay(Random.nextLong(2000, 5000))
             sendReply(action, reply)
         }
     }
@@ -66,8 +76,9 @@ class WhatsAppListener : NotificationListenerService() {
             val results = Bundle().apply { putCharSequence(inputs[0].resultKey, reply) }
             RemoteInput.addResultsToIntent(inputs, intent, results)
             action.actionIntent.send(this, 0, intent)
+            DebugLog.add(this, "-> reply SENT")
         } catch (e: Exception) {
-            // notification was dismissed or opened; nothing to do
+            DebugLog.add(this, "-> send FAILED: ${e.message}")
         }
     }
 

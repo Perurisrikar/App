@@ -7,6 +7,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +16,12 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
 
     private lateinit var status: TextView
+    private lateinit var logView: TextView
+
+    override fun onResume() {
+        super.onResume()
+        if (::logView.isInitialized) logView.text = DebugLog.get(this)
+    }
 
     private val pickModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) copyModel(uri)
@@ -81,6 +88,27 @@ class MainActivity : AppCompatActivity() {
             isChecked = prefs.getBoolean("enabled", false)
             setOnCheckedChangeListener { _, on -> prefs.edit().putBoolean("enabled", on).apply() }
         })
-        setContentView(root)
+        root.addView(Button(this).apply {
+            text = "5. Test AI (no WhatsApp needed)"
+            setOnClickListener {
+                logView.text = "Testing... wait up to a minute, then tap Refresh log"
+                Thread {
+                    val r = kotlinx.coroutines.runBlocking { AiClient.reply(applicationContext, "test", "Hii em chesthunav") }
+                    DebugLog.add(this@MainActivity, "TEST result: $r")
+                    runOnUiThread { logView.text = DebugLog.get(this@MainActivity) }
+                }.start()
+            }
+        })
+        root.addView(Button(this).apply {
+            text = "Refresh log"
+            setOnClickListener { logView.text = DebugLog.get(this@MainActivity) }
+        })
+        logView = TextView(this).apply {
+            text = DebugLog.get(this@MainActivity)
+            textSize = 12f
+            setTextIsSelectable(true)
+        }
+        root.addView(logView)
+        setContentView(ScrollView(this).apply { addView(root) })
     }
 }

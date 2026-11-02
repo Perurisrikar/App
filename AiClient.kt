@@ -55,7 +55,7 @@ object AiClient {
         lock.withLock {
             if (llm != null) return@withLock true
             val f = modelFile(context)
-            if (!f.exists()) return@withLock false
+            if (!f.exists()) { DebugLog.add(context, "Model file missing"); return@withLock false }
             try {
                 val options = LlmInference.LlmInferenceOptions.builder()
                     .setModelPath(f.absolutePath)
@@ -63,9 +63,11 @@ object AiClient {
                     .setMaxTopK(40)
                     .build()
                 llm = LlmInference.createFromOptions(context.applicationContext, options)
+                DebugLog.add(context, "Model loaded OK")
                 true
             } catch (e: Throwable) {   // includes out-of-memory
                 llm = null
+                DebugLog.add(context, "Model load FAILED: ${e.javaClass.simpleName} ${e.message?.take(150)}")
                 false
             }
         }
@@ -96,10 +98,12 @@ object AiClient {
                 val raw = try {
                     llm!!.generateResponse(buildPrompt(turns))
                 } catch (e: Throwable) {
+                    DebugLog.add(context, "Generation FAILED: ${e.javaClass.simpleName} ${e.message?.take(150)}")
                     turns.removeAt(turns.lastIndex); return@withLock null
                 }
                 var out = raw.replace("<end_of_turn>", "").removePrefix("Me:").trim()
                 out = out.lines().firstOrNull { it.isNotBlank() }?.trim() ?: ""   // first line only
+                DebugLog.add(context, "Model raw: ${raw.take(80)}")
                 if (out.length > 120) out = out.take(120).substringBeforeLast(' ')
                 // drop empty, SKIP, or Telugu-script / runaway output
                 if (out.isEmpty() || out.startsWith("SKIP", true) || out.any { it in '\u0C00'..'\u0C7F' }) {
