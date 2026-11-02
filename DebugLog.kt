@@ -17,6 +17,10 @@ object DebugLog {
         p.edit().putString("log", lines.joinToString("\n")).apply()
     }
 
+    fun clear(ctx: Context) {
+        ctx.applicationContext.getSharedPreferences("dbg", Context.MODE_PRIVATE).edit().remove("log").apply()
+    }
+
     fun get(ctx: Context): String {
         val s = ctx.applicationContext.getSharedPreferences("dbg", Context.MODE_PRIVATE).getString("log", "") ?: ""
         return if (s.isBlank()) "(log empty)" else s.split("\n").reversed().joinToString("\n")
